@@ -7,6 +7,7 @@ from datetime import datetime
 from app.core import get_db
 from app.models import Run, Session, Message, RunStatus
 from app.schemas import RunCreate, RunUpdate, RunResponse, RunListResponse
+from app.agent.runtime import create_langgraph_agent
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -78,9 +79,13 @@ async def create_run(run_data: RunCreate, db: AsyncSession = Depends(get_db)):
         )
         db.add(message)
 
-    await db.flush()
+    await db.commit()
+    await db.refresh(run)
 
-    # TODO: Enqueue job for agent worker
+    # Start the agent in the background
+    agent = create_langgraph_agent(run.id)
+    import asyncio
+    asyncio.create_task(agent.execute())
 
     return run
 
@@ -110,6 +115,8 @@ async def update_run(
 
 @router.post("/{run_id}/cancel", response_model=RunResponse)
 async def cancel_run(run_id: UUID, db: AsyncSession = Depends(get_db)):
+    from app.agent.runtime import cancel_runtime
+
     result = await db.execute(select(Run).where(Run.id == run_id))
     run = result.scalar_one_or_none()
     if not run:
@@ -123,6 +130,7 @@ async def cancel_run(run_id: UUID, db: AsyncSession = Depends(get_db)):
     await db.flush()
     await db.refresh(run)
 
-    # TODO: Notify agent worker to cancel
+    # Cancel the agent runtime
+    await cancel_runtime(run_id)
 
     return run

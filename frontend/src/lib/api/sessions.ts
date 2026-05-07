@@ -26,4 +26,7 @@ export const sessionsApi = {
 
   addMessage: (sessionId: string, content: string, role: string = "user") =>
     apiClient.post<Message>(`/api/sessions/${sessionId}/messages`, { content, role }),
+
+  delete: (sessionId: string) =>
+    apiClient.delete(`/api/sessions/${sessionId}`),
 };

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useConsoleStore } from "@/stores/consoleStore";
+import { sessionsApi } from "@/lib/api/sessions";
 import { runsApi } from "@/lib/api/runs";
 import { runEventsService } from "@/lib/realtime/runEvents";
 import { Button } from "@/components/ui/button";
@@ -26,13 +27,36 @@ export function ConversationPanel() {
   } = useConsoleStore();
 
   const [input, setInput] = useState("");
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Load messages when session is selected
+  useEffect(() => {
+    if (selectedSessionId) {
+      loadMessages(selectedSessionId);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedSessionId]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streamContent]);
+
+  const loadMessages = async (sessionId: string) => {
+    try {
+      setIsLoadingMessages(true);
+      const response = await sessionsApi.messages(sessionId);
+      setMessages(response.messages);
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
 
   const handleStartRun = async () => {
     if (!input.trim() || !selectedSessionId) return;
@@ -79,7 +103,17 @@ export function ConversationPanel() {
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
-          {messages.map((message) => (
+          {isLoadingMessages ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground text-sm">
+              <p>No messages yet</p>
+              <p className="text-xs mt-1">Select a session and start a conversation</p>
+            </div>
+          ) : (
+            messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${

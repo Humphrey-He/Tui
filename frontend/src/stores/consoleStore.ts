@@ -11,6 +11,7 @@ import type {
 
 interface ConsoleState {
   // Current selections
+  selectedProjectId: string | null;
   selectedSessionId: string | null;
   selectedRunId: string | null;
   selectedToolCallId: string | null;
@@ -31,12 +32,14 @@ interface ConsoleState {
   isConnected: boolean;
 
   // Actions
+  setSelectedProject: (projectId: string | null) => void;
   setSelectedSession: (sessionId: string | null) => void;
   setSelectedRun: (runId: string | null) => void;
   setSelectedToolCall: (toolCallId: string | null) => void;
   setSelectedApproval: (approvalId: string | null) => void;
 
   setSessions: (sessions: Session[]) => void;
+  addSession: (session: Session) => void;
   setCurrentRun: (run: Run | null) => void;
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
@@ -64,6 +67,7 @@ interface ConsoleState {
 }
 
 const initialState = {
+  selectedProjectId: null,
   selectedSessionId: null,
   selectedRunId: null,
   selectedToolCallId: null,
@@ -83,12 +87,15 @@ const initialState = {
 export const useConsoleStore = create<ConsoleState>((set) => ({
   ...initialState,
 
+  setSelectedProject: (projectId) => set({ selectedProjectId: projectId }),
   setSelectedSession: (sessionId) => set({ selectedSessionId: sessionId }),
   setSelectedRun: (runId) => set({ selectedRunId: runId }),
   setSelectedToolCall: (toolCallId) => set({ selectedToolCallId: toolCallId }),
   setSelectedApproval: (approvalId) => set({ selectedApprovalId: approvalId }),
 
   setSessions: (sessions) => set({ sessions }),
+  addSession: (session) =>
+    set((state) => ({ sessions: [session, ...state.sessions] })),
   setCurrentRun: (run) => set({ currentRun: run }),
   setMessages: (messages) => set({ messages }),
   addMessage: (message) =>
