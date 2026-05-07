@@ -1,11 +1,11 @@
 from fastapi import APIRouter
-from .sessions import router as sessions_router
-from .runs import router as runs_router
-from .tool_calls import router as tool_calls_router, approval_router
-from .auth import router as auth_router
-from .projects import router as projects_router
-from .audit import router as audit_router
-from .logs import router as logs_router
+from .routes.sessions import router as sessions_router
+from .routes.runs import router as runs_router
+from .routes.tool_calls import router as tool_calls_router, approval_router
+from .routes.auth import router as auth_router
+from .routes.projects import router as projects_router
+from .routes.audit import router as audit_router
+from .routes.logs import router as logs_router
 
 api_router = APIRouter(prefix="/api")
 

@@ -125,12 +125,13 @@ async def handle_approve_tool_call(data: dict, websocket: WebSocket):
 
     # Import here to avoid circular imports
     from app.services.events import emit_run_event, EventType
+    from app.services.audit import log_approval_decision
 
     try:
         # Get approval and emit event
         async with websocket.app.state.db_session() as session:
             from sqlalchemy import select
-            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision, ToolCall, ToolCallStatus
+            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision, ToolCall, ToolCallStatus, Run
 
             result = await session.execute(
                 select(ApprovalRequest).where(ApprovalRequest.id == UUID(approval_id))
@@ -140,6 +141,11 @@ async def handle_approve_tool_call(data: dict, websocket: WebSocket):
             if not approval:
                 await websocket.send_json({"type": "error", "error": "Approval not found"})
                 return
+
+            # Get project_id for audit logging
+            run_result = await session.execute(select(Run).where(Run.id == approval.run_id))
+            run = run_result.scalar_one_or_none()
+            project_id = run.project_id if run else approval.run_id
 
             approval.decision = ApprovalDecision.APPROVED
             approval.decision_reason = reason
@@ -158,6 +164,14 @@ async def handle_approve_tool_call(data: dict, websocket: WebSocket):
 
             await session.commit()
 
+            # Audit logging
+            await log_approval_decision(
+                project_id=project_id,
+                approval_id=approval.id,
+                decision=ApprovalDecision.APPROVED,
+                reason=reason,
+            )
+
             # Emit events
             await emit_run_event(
                 approval.run_id,
@@ -166,7 +180,7 @@ async def handle_approve_tool_call(data: dict, websocket: WebSocket):
             )
 
         await websocket.send_json({
-            "type": "approval_resolved",
+            "type": "approval.resolved",
             "approval_id": approval_id,
             "decision": "approved",
         })
@@ -187,11 +201,12 @@ async def handle_reject_tool_call(data: dict, websocket: WebSocket):
         return
 
     from app.services.events import emit_run_event, EventType
+    from app.services.audit import log_approval_decision
 
     try:
         async with websocket.app.state.db_session() as session:
             from sqlalchemy import select
-            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision, ToolCall, ToolCallStatus
+            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision, ToolCall, ToolCallStatus, Run
 
             result = await session.execute(
                 select(ApprovalRequest).where(ApprovalRequest.id == UUID(approval_id))
@@ -201,6 +216,11 @@ async def handle_reject_tool_call(data: dict, websocket: WebSocket):
             if not approval:
                 await websocket.send_json({"type": "error", "error": "Approval not found"})
                 return
+
+            # Get project_id for audit logging
+            run_result = await session.execute(select(Run).where(Run.id == approval.run_id))
+            run = run_result.scalar_one_or_none()
+            project_id = run.project_id if run else approval.run_id
 
             approval.decision = ApprovalDecision.REJECTED
             approval.decision_reason = reason
@@ -219,6 +239,14 @@ async def handle_reject_tool_call(data: dict, websocket: WebSocket):
 
             await session.commit()
 
+            # Audit logging
+            await log_approval_decision(
+                project_id=project_id,
+                approval_id=approval.id,
+                decision=ApprovalDecision.REJECTED,
+                reason=reason,
+            )
+
             await emit_run_event(
                 approval.run_id,
                 EventType.APPROVAL_RESOLVED,
@@ -226,7 +254,7 @@ async def handle_reject_tool_call(data: dict, websocket: WebSocket):
             )
 
         await websocket.send_json({
-            "type": "approval_resolved",
+            "type": "approval.resolved",
             "approval_id": approval_id,
             "decision": "rejected",
         })
@@ -248,11 +276,12 @@ async def handle_edit_tool_call(data: dict, websocket: WebSocket):
         return
 
     from app.services.events import emit_run_event, EventType
+    from app.services.audit import log_approval_decision
 
     try:
         async with websocket.app.state.db_session() as session:
             from sqlalchemy import select
-            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision
+            from app.models import ApprovalRequest, ApprovalStatus, ApprovalDecision, Run
 
             result = await session.execute(
                 select(ApprovalRequest).where(ApprovalRequest.id == UUID(approval_id))
@@ -263,6 +292,11 @@ async def handle_edit_tool_call(data: dict, websocket: WebSocket):
                 await websocket.send_json({"type": "error", "error": "Approval not found"})
                 return
 
+            # Get project_id for audit logging
+            run_result = await session.execute(select(Run).where(Run.id == approval.run_id))
+            run = run_result.scalar_one_or_none()
+            project_id = run.project_id if run else approval.run_id
+
             approval.decision = ApprovalDecision.EDITED
             approval.edited_args = edited_args
             approval.decision_reason = reason
@@ -272,6 +306,14 @@ async def handle_edit_tool_call(data: dict, websocket: WebSocket):
 
             await session.commit()
 
+            # Audit logging
+            await log_approval_decision(
+                project_id=project_id,
+                approval_id=approval.id,
+                decision=ApprovalDecision.EDITED,
+                reason=reason,
+            )
+
             await emit_run_event(
                 approval.run_id,
                 EventType.APPROVAL_RESOLVED,
@@ -279,7 +321,7 @@ async def handle_edit_tool_call(data: dict, websocket: WebSocket):
             )
 
         await websocket.send_json({
-            "type": "approval_resolved",
+            "type": "approval.resolved",
             "approval_id": approval_id,
             "decision": "edited",
         })

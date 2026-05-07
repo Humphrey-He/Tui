@@ -143,10 +143,155 @@ async def emit_message_delta(run_id: UUID, content: str):
 
 async def emit_message_completed(run_id: UUID, message_id: str, content: str):
     """Emit a message completed event."""
+    # Fetch the message from DB to get full object
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+        result = await session.execute(
+            select(Message).where(Message.id == message_id)
+        )
+        message = result.scalar_one_or_none()
+
+    if message:
+        message_data = {
+            "id": str(message.id),
+            "session_id": str(message.session_id),
+            "role": message.role,
+            "content": message.content,
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+        }
+    else:
+        message_data = {"id": message_id, "content": content, "role": "assistant"}
+
     await emit_run_event(
         run_id,
         EventType.MESSAGE_COMPLETED,
-        {"message_id": message_id, "content": content},
+        {"message": message_data},
+    )
+
+
+async def emit_tool_call_created(run_id: UUID, tool_call_id: str, tool_name: str):
+    """Emit a tool call created event with full tool_call object."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(ToolCall).where(ToolCall.id == UUIDType(tool_call_id))
+        )
+        tool_call = result.scalar_one_or_none()
+
+    tool_call_data = None
+    if tool_call:
+        tool_call_data = {
+            "id": str(tool_call.id),
+            "run_id": str(tool_call.run_id),
+            "tool_name": tool_call.tool_name,
+            "arguments": tool_call.arguments,
+            "status": tool_call.status.value if hasattr(tool_call.status, 'value') else tool_call.status,
+            "risk_level": tool_call.risk_level.value if hasattr(tool_call.risk_level, 'value') else tool_call.risk_level,
+            "started_at": tool_call.started_at.isoformat() if tool_call.started_at else None,
+        }
+
+    await emit_run_event(
+        run_id,
+        EventType.TOOL_CALL_CREATED,
+        {"tool_call": tool_call_data},
+    )
+
+
+async def emit_tool_call_started(run_id: UUID, tool_call_id: str):
+    """Emit a tool call started event with full tool_call object."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(ToolCall).where(ToolCall.id == UUIDType(tool_call_id))
+        )
+        tool_call = result.scalar_one_or_none()
+
+    tool_call_data = None
+    if tool_call:
+        tool_call_data = {
+            "id": str(tool_call.id),
+            "run_id": str(tool_call.run_id),
+            "tool_name": tool_call.tool_name,
+            "arguments": tool_call.arguments,
+            "status": tool_call.status.value if hasattr(tool_call.status, 'value') else tool_call.status,
+            "risk_level": tool_call.risk_level.value if hasattr(tool_call.risk_level, 'value') else tool_call.risk_level,
+            "started_at": tool_call.started_at.isoformat() if tool_call.started_at else None,
+        }
+
+    await emit_run_event(
+        run_id,
+        EventType.TOOL_CALL_STARTED,
+        {"tool_call": tool_call_data},
+    )
+
+
+async def emit_tool_call_completed(run_id: UUID, tool_call_id: str, result: dict):
+    """Emit a tool call completed event with full tool_call object."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        result_db = await session.execute(
+            select(ToolCall).where(ToolCall.id == UUIDType(tool_call_id))
+        )
+        tool_call = result_db.scalar_one_or_none()
+
+    tool_call_data = None
+    if tool_call:
+        tool_call_data = {
+            "id": str(tool_call.id),
+            "run_id": str(tool_call.run_id),
+            "tool_name": tool_call.tool_name,
+            "arguments": tool_call.arguments,
+            "status": tool_call.status.value if hasattr(tool_call.status, 'value') else tool_call.status,
+            "risk_level": tool_call.risk_level.value if hasattr(tool_call.risk_level, 'value') else tool_call.risk_level,
+            "result": result,
+            "completed_at": tool_call.completed_at.isoformat() if tool_call.completed_at else None,
+        }
+
+    await emit_run_event(
+        run_id,
+        EventType.TOOL_CALL_COMPLETED,
+        {"tool_call": tool_call_data},
+    )
+
+
+async def emit_tool_call_failed(run_id: UUID, tool_call_id: str, error: str):
+    """Emit a tool call failed event with full tool_call object."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        result_db = await session.execute(
+            select(ToolCall).where(ToolCall.id == UUIDType(tool_call_id))
+        )
+        tool_call = result_db.scalar_one_or_none()
+
+    tool_call_data = None
+    if tool_call:
+        tool_call_data = {
+            "id": str(tool_call.id),
+            "run_id": str(tool_call.run_id),
+            "tool_name": tool_call.tool_name,
+            "arguments": tool_call.arguments,
+            "status": tool_call.status.value if hasattr(tool_call.status, 'value') else tool_call.status,
+            "risk_level": tool_call.risk_level.value if hasattr(tool_call.risk_level, 'value') else tool_call.risk_level,
+            "error_message": error,
+            "completed_at": tool_call.completed_at.isoformat() if tool_call.completed_at else None,
+        }
+
+    await emit_run_event(
+        run_id,
+        EventType.TOOL_CALL_FAILED,
+        {"tool_call": tool_call_data},
     )
 
 
@@ -158,14 +303,56 @@ async def emit_tool_call_pending_approval(
     risk_level: str,
 ):
     """Emit a tool call pending approval event."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        # Fetch tool call
+        result = await session.execute(
+            select(ToolCall).where(ToolCall.id == UUIDType(tool_call_id))
+        )
+        tool_call = result.scalar_one_or_none()
+
+        # Fetch approval request
+        result = await session.execute(
+            select(ApprovalRequest).where(
+                ApprovalRequest.tool_call_id == UUIDType(tool_call_id),
+                ApprovalRequest.status == ApprovalStatus.PENDING
+            )
+        )
+        approval = result.scalar_one_or_none()
+
+    tool_call_data = None
+    if tool_call:
+        tool_call_data = {
+            "id": str(tool_call.id),
+            "run_id": str(tool_call.run_id),
+            "tool_name": tool_call.tool_name,
+            "arguments": tool_call.arguments,
+            "status": tool_call.status.value if hasattr(tool_call.status, 'value') else tool_call.status,
+            "risk_level": tool_call.risk_level.value if hasattr(tool_call.risk_level, 'value') else tool_call.risk_level,
+            "started_at": tool_call.started_at.isoformat() if tool_call.started_at else None,
+        }
+
+    approval_data = None
+    if approval:
+        approval_data = {
+            "id": str(approval.id),
+            "run_id": str(approval.run_id),
+            "tool_call_id": str(approval.tool_call_id) if approval.tool_call_id else None,
+            "status": approval.status.value if hasattr(approval.status, 'value') else approval.status,
+            "requested_action": approval.requested_action,
+            "original_args": approval.original_args,
+            "created_at": approval.created_at.isoformat() if approval.created_at else None,
+        }
+
     await emit_run_event(
         run_id,
         EventType.TOOL_CALL_PENDING_APPROVAL,
         {
-            "tool_call_id": tool_call_id,
-            "tool_name": tool_name,
-            "arguments": arguments,
-            "risk_level": risk_level,
+            "tool_call": tool_call_data,
+            "approval": approval_data,
         },
     )
 
@@ -176,13 +363,32 @@ async def emit_approval_created(
     requested_action: str,
 ):
     """Emit an approval created event."""
+    from uuid import UUID as UUIDType
+
+    async with async_session_maker() as session:
+        from sqlalchemy import select
+
+        result = await session.execute(
+            select(ApprovalRequest).where(ApprovalRequest.id == UUIDType(approval_id))
+        )
+        approval = result.scalar_one_or_none()
+
+    approval_data = None
+    if approval:
+        approval_data = {
+            "id": str(approval.id),
+            "run_id": str(approval.run_id),
+            "tool_call_id": str(approval.tool_call_id) if approval.tool_call_id else None,
+            "status": approval.status.value if hasattr(approval.status, 'value') else approval.status,
+            "requested_action": approval.requested_action,
+            "original_args": approval.original_args,
+            "created_at": approval.created_at.isoformat() if approval.created_at else None,
+        }
+
     await emit_run_event(
         run_id,
         EventType.APPROVAL_CREATED,
-        {
-            "approval_id": approval_id,
-            "requested_action": requested_action,
-        },
+        {"approval": approval_data},
     )
 
 

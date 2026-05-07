@@ -214,7 +214,7 @@ class AuditLog(Base):
     action = Column(String(100), nullable=False)
     target_type = Column(String(100), nullable=True)
     target_id = Column(String(255), nullable=True)
-    metadata = Column(JSON, nullable=True, default=dict)
+    meta = Column(JSON, nullable=True, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -229,7 +229,7 @@ class Log(Base):
     run_id = Column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False)
     level = Column(String(20), nullable=False, default="info")  # debug, info, warn, error
     message = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True, default=dict)
+    meta = Column(JSON, nullable=True, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

@@ -23,7 +23,11 @@ from app.services.events import (
     emit_run_event,
     emit_message_delta,
     emit_message_completed,
+    emit_tool_call_created,
     emit_tool_call_pending_approval,
+    emit_tool_call_started,
+    emit_tool_call_completed,
+    emit_tool_call_failed,
     emit_approval_created,
     emit_run_completed,
     emit_run_failed,
@@ -93,8 +97,8 @@ class LangGraphAgent:
             "tool_node",
             self._should_approve,
             {
-                "approve": "approval_node",
-                "continue": END,
+                "approval_node": "approval_node",
+                END: END,
             }
         )
         graph.add_edge("approval_node", "llm_node")
@@ -204,10 +208,10 @@ class LangGraphAgent:
 
                 tool_call_id = str(tc.id)
 
-                await emit_run_event(
+                await emit_tool_call_created(
                     self.run_id,
-                    EventType.TOOL_CALL_CREATED,
-                    {"tool_call_id": tool_call_id, "tool_name": tool_name},
+                    tool_call_id,
+                    tool_name,
                 )
 
                 # Check if approval required
@@ -255,10 +259,9 @@ class LangGraphAgent:
                 tc.status = ToolCallStatus.RUNNING
                 await session.commit()
 
-                await emit_run_event(
+                await emit_tool_call_started(
                     self.run_id,
-                    EventType.TOOL_CALL_STARTED,
-                    {"tool_call_id": tool_call_id},
+                    tool_call_id,
                 )
 
                 try:
@@ -268,10 +271,10 @@ class LangGraphAgent:
                     tc.completed_at = datetime.utcnow()
                     await session.commit()
 
-                    await emit_run_event(
+                    await emit_tool_call_completed(
                         self.run_id,
-                        EventType.TOOL_CALL_COMPLETED,
-                        {"tool_call_id": tool_call_id, "result": result},
+                        tool_call_id,
+                        result,
                     )
 
                     # Add tool result to messages so LLM can see it
@@ -285,10 +288,10 @@ class LangGraphAgent:
                     tc.error_message = str(e)
                     await session.commit()
 
-                    await emit_run_event(
+                    await emit_tool_call_failed(
                         self.run_id,
-                        EventType.TOOL_CALL_FAILED,
-                        {"tool_call_id": tool_call_id, "error": str(e)},
+                        tool_call_id,
+                        str(e),
                     )
 
                     error_tool_message = ToolMessage(
@@ -394,10 +397,10 @@ class LangGraphAgent:
                 tool_call.completed_at = datetime.utcnow()
                 await session.commit()
 
-                await emit_run_event(
+                await emit_tool_call_completed(
                     self.run_id,
-                    EventType.TOOL_CALL_COMPLETED,
-                    {"tool_call_id": str(tool_call_id), "result": result},
+                    str(tool_call_id),
+                    result,
                 )
 
                 tool_message = ToolMessage(
@@ -410,10 +413,10 @@ class LangGraphAgent:
                 tool_call.error_message = str(e)
                 await session.commit()
 
-                await emit_run_event(
+                await emit_tool_call_failed(
                     self.run_id,
-                    EventType.TOOL_CALL_FAILED,
-                    {"tool_call_id": str(tool_call_id), "error": str(e)},
+                    str(tool_call_id),
+                    str(e),
                 )
 
                 error_message = ToolMessage(
