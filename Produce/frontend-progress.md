@@ -18,6 +18,7 @@
 | TimelinePanel | `frontend/src/components/TimelinePanel.tsx` | 时间线面板 |
 | ToolCallView | `frontend/src/components/ToolCallView.tsx` | 工具调用详情 |
 | FileDiffView | `frontend/src/components/FileDiffView.tsx` | 文件差异展示 |
+| **LogsPanel** | `frontend/src/components/LogsPanel.tsx` | **日志面板** ✅ |
 
 ### UI 组件 (shadcn/ui) ✅
 
@@ -45,8 +46,8 @@
 | 删除会话 | `sessionsApi.delete(id)` | DELETE `/api/sessions/{id}` |
 | 会话消息 | `sessionsApi.messages(id)` | GET `/api/sessions/{id}/messages` |
 | 创建 Run | `runsApi.create()` | POST `/api/runs` |
-| 取消 Run | `runsApi.cancel(id)` | POST `/api/runs/{id}/cancel` |
-| Run 事件流 | `runsApi.events(id)` | GET `/api/runs/{id}/events` |
+| 取消 Run | `runsApi.cancel(id)` | POST `/api/runs/{run_id}/cancel` |
+| Run 事件流 | `runsApi.events(id)` | GET `/api/runs/{run_id}/events` |
 
 ### 待开发 📋
 
@@ -54,11 +55,7 @@
 |-----|------|--------|
 | Run 列表 | `runsApi.list()` | P1 |
 | Run 详情 | `runsApi.get(id)` | P1 |
-| 工具调用列表 | 待定 | P0 |
-| 审批列表 | 待定 | P0 |
-| 审批操作 | 待定 | P0 |
-| 文件差异列表 | 待定 | P1 |
-| 审计日志 | 待定 | P2 |
+| 审计日志 | `auditApi.list()` | P2 |
 
 ---
 
@@ -121,7 +118,7 @@ interface ConsoleState {
 ### runEvents.ts (SSE) ✅ 已完成
 - [x] 连接建立
 - [x] 事件监听机制
-- [x] **事件处理器注册 (连接到 Store)**
+- [x] 事件处理器注册 (连接到 Store)
 - [x] 重连逻辑 (指数退避)
 
 #### 已实现的事件处理 ✅
@@ -145,13 +142,14 @@ interface ConsoleState {
 | `run.completed` | 更新 Run 状态 | `setCurrentRun` + `setIsStreaming(false)` |
 | `run.failed` | 更新 Run 错误状态 | `setCurrentRun` + `setIsStreaming(false)` |
 | `run.cancelled` | 更新 Run 取消状态 | `setCurrentRun` + `setIsStreaming(false)` |
+| `log.created` | 添加日志 | `addLog` (待实现) |
 
-### controlSocket.ts (WebSocket) 🔄
+### controlSocket.ts (WebSocket) ✅ 已完成
 - [x] 连接建立
 - [x] 消息发送
 - [x] 事件监听机制
-- [ ] 审批操作 (approve/reject/edit)
-- [ ] Run 取消
+- [x] 审批操作 (approve/reject/edit)
+- [x] Store 事件处理 (approval.resolved, run.status_changed)
 
 ---
 
@@ -165,7 +163,7 @@ interface ConsoleState {
 
 ### Run 启动流程
 ```typescript
-1. 清空旧 Run 数据 (toolCalls, approvals, steps, fileDiffs)
+1. 清空旧 Run 数据 (toolCalls, approvals, steps, fileDiffs, logs)
 2. 添加用户消息到本地
 3. 调用 runsApi.create() 创建 Run
 4. 设置 setCurrentRun(run) 和 setSelectedRun(run.id)
@@ -175,20 +173,48 @@ interface ConsoleState {
 
 ---
 
+## Logs Panel ✅ 新增
+
+### 功能
+- [x] 实时日志展示
+- [x] 按级别过滤 (debug, info, warn, error)
+- [x] 关键词搜索
+- [x] 自动过滤计数显示
+- [x] Auto-scroll 开关
+
+### 组件
+- `LogsPanel.tsx` - 日志面板组件
+
+### Store 扩展
+```typescript
+logs: LogEntry[];
+logFilter: {
+  level: LogLevel | null;
+  keyword: string;
+};
+setLogs: (logs: LogEntry[]) => void;
+addLog: (log: LogEntry) => void;
+setLogFilter: (filter: { level?: LogLevel | null; keyword?: string }) => void;
+```
+
+### SSE 事件
+| 事件 | 处理 |
+|------|------|
+| `log.created` | `addLog(log)` |
+
+---
+
 ## 待完成功能
 
 ### P0 (MVP 必须)
 - [x] **SSE 事件完整处理** - 已实现所有事件类型
-- [ ] 审批卡片 UI 和操作
-  - [ ] Approve 按钮调用 controlSocketService.approveToolCall
-  - [ ] Reject 按钮调用 controlSocketService.rejectToolCall
-  - [ ] Edit & Approve 编辑参数后执行
-- [ ] 流式输出 Markdown 渲染 (已有 react-markdown，需完善)
+- [x] **审批卡片 UI 和操作** - Approve/Reject/Edit & Approve
+- [x] 流式输出 Markdown 渲染
 
 ### P1 (重要)
+- [x] **日志面板** - 实时日志展示 + 搜索过滤 ✅
 - [ ] Run 列表页面
 - [ ] 文件 Diff 展示 (Monaco Editor)
-- [ ] 日志面板 (实时日志)
 - [ ] 断线重连状态恢复
 
 ### P2 (增强)
@@ -212,3 +238,75 @@ interface ConsoleState {
 - [ ] 离线/网络异常处理
 - [ ] 虚拟列表优化 (大量消息时)
 - [ ] SSE 断开后自动重连的状态同步
+
+---
+
+## 新增需求 (2026-05-07)
+
+### 日志面板
+
+**需求描述**：
+- 实时展示结构化日志
+- 支持按级别过滤 (debug, info, warn, error)
+- 支持关键词搜索
+- 日志格式: `[时间戳] [级别] 内容`
+
+**数据结构**：
+```typescript
+interface LogEntry {
+  id: string;
+  run_id: string;
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+```
+
+**Store 扩展**：
+```typescript
+interface ConsoleState {
+  // ... existing
+  logs: LogEntry[];
+  logFilter: {
+    level: string | null;  // debug, info, warn, error
+    keyword: string;
+  };
+}
+```
+
+**事件类型**：
+| 事件 | payload | 说明 |
+|------|---------|------|
+| `log.created` | `{log: LogEntry}` | 新日志 |
+
+**API 需求**：
+```
+GET /api/runs/{run_id}/logs
+Response: { logs: LogEntry[], total: number }
+```
+
+---
+
+## API 需求清单
+
+### 后端待实现
+
+| API | 方法 | 路径 | 优先级 |
+|-----|------|------|--------|
+| Run 日志列表 | GET | `/api/runs/{run_id}/logs` | P1 |
+| Run 列表 | GET | `/api/runs` | P1 |
+| Run 详情 | GET | `/api/runs/{run_id}` | P1 |
+| 审计日志 | GET | `/api/audit_logs` | P2 |
+
+### 后端已实现
+
+| API | 方法 | 路径 |
+|-----|------|------|
+| 会话列表 | GET | `/api/sessions` |
+| 创建会话 | POST | `/api/sessions` |
+| 删除会话 | DELETE | `/api/sessions/{id}` |
+| 会话消息 | GET | `/api/sessions/{id}/messages` |
+| 创建 Run | POST | `/api/runs` |
+| 取消 Run | POST | `/api/runs/{run_id}/cancel` |
+| SSE 事件 | GET | `/api/runs/{run_id}/events` |

@@ -6,6 +6,7 @@ from .security import (
     get_password_hash,
     create_access_token,
     decode_token,
+    verify_token,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "get_password_hash",
     "create_access_token",
     "decode_token",
+    "verify_token",
 ]

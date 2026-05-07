@@ -7,6 +7,8 @@ import type {
   ApprovalRequest,
   AgentStep,
   FileDiff,
+  LogEntry,
+  LogLevel,
 } from "@/types";
 
 interface ConsoleState {
@@ -25,11 +27,16 @@ interface ConsoleState {
   approvals: ApprovalRequest[];
   steps: AgentStep[];
   fileDiffs: FileDiff[];
+  logs: LogEntry[];
 
   // UI State
   isStreaming: boolean;
   streamContent: string;
   isConnected: boolean;
+  logFilter: {
+    level: LogLevel | null;
+    keyword: string;
+  };
 
   // Actions
   setSelectedProject: (projectId: string | null) => void;
@@ -61,6 +68,10 @@ interface ConsoleState {
   setFileDiffs: (fileDiffs: FileDiff[]) => void;
   addFileDiff: (fileDiff: FileDiff) => void;
 
+  setLogs: (logs: LogEntry[]) => void;
+  addLog: (log: LogEntry) => void;
+  setLogFilter: (filter: { level?: LogLevel | null; keyword?: string }) => void;
+
   setIsStreaming: (isStreaming: boolean) => void;
   setIsConnected: (isConnected: boolean) => void;
 
@@ -80,9 +91,14 @@ const initialState = {
   approvals: [],
   steps: [],
   fileDiffs: [],
+  logs: [],
   isStreaming: false,
   streamContent: "",
   isConnected: false,
+  logFilter: {
+    level: null,
+    keyword: "",
+  },
 };
 
 export const useConsoleStore = create<ConsoleState>((set) => ({
@@ -138,6 +154,12 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   setFileDiffs: (fileDiffs) => set({ fileDiffs }),
   addFileDiff: (fileDiff) =>
     set((state) => ({ fileDiffs: [...state.fileDiffs, fileDiff] })),
+
+  setLogs: (logs) => set({ logs }),
+  addLog: (log) =>
+    set((state) => ({ logs: [...state.logs, log] })),
+  setLogFilter: (filter) =>
+    set((state) => ({ logFilter: { ...state.logFilter, ...filter } })),
 
   setIsStreaming: (isStreaming) => set({ isStreaming }),
   setIsConnected: (isConnected) => set({ isConnected }),

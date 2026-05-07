@@ -6,8 +6,10 @@ import { SessionSidebar } from "@/components/SessionSidebar";
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { TimelinePanel } from "@/components/TimelinePanel";
+import { LogsPanel } from "@/components/LogsPanel";
 import { useConsoleStore } from "@/stores/consoleStore";
 import { controlSocketService } from "@/lib/realtime/controlSocket";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ConsolePage() {
   const { isConnected, setIsConnected } = useConsoleStore();
@@ -69,9 +71,30 @@ export default function ConsolePage() {
           </aside>
         </div>
 
-        {/* Bottom: Timeline */}
+        {/* Bottom: Timeline / Logs */}
         <footer className="h-48 border-t bg-card">
-          <TimelinePanel />
+          <Tabs defaultValue="timeline" className="h-full flex flex-col">
+            <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-2">
+              <TabsTrigger
+                value="timeline"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs h-8"
+              >
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger
+                value="logs"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs h-8"
+              >
+                Logs
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="timeline" className="flex-1 overflow-hidden m-0">
+              <TimelinePanel />
+            </TabsContent>
+            <TabsContent value="logs" className="flex-1 overflow-hidden m-0">
+              <LogsPanel />
+            </TabsContent>
+          </Tabs>
         </footer>
       </main>
     </QueryProvider>

@@ -8,6 +8,7 @@ import type {
   ApprovalRequest,
   AgentStep,
   FileDiff,
+  LogEntry,
 } from "@/types";
 
 type EventHandler = (event: RunEvent) => void;
@@ -194,6 +195,12 @@ class RunEventsService {
       }
       useConsoleStore.getState().setIsStreaming(false);
       useConsoleStore.getState().clearStreamContent();
+    });
+
+    // log.created - 日志创建
+    this.on("log.created", (event) => {
+      const { log } = event.payload as { log: LogEntry };
+      useConsoleStore.getState().addLog(log);
     });
   }
 

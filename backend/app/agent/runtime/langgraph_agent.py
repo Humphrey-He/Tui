@@ -10,7 +10,9 @@ from typing import TypedDict, Annotated, Sequence, Literal, Optional, Any
 from uuid import UUID
 from datetime import datetime
 from langgraph.graph import StateGraph, END
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.tools import tool as create_tool
 from langchain_openai import ChatOpenAI
 
 from app.core import get_settings, async_session_maker
@@ -102,12 +104,23 @@ class LangGraphAgent:
     async def _llm_node(self, state: AgentState) -> dict:
         """LLM node that generates responses."""
         try:
-            # Initialize LLM
+            # Get tools from registry and bind to LLM
+            tools = []
+            for tool_def in tool_registry.list_tools():
+                # Convert tool definition to LangChain tool
+                lc_tool = create_tool(
+                    name=tool_def.name,
+                    description=tool_def.description,
+                    args_schema=tool_def.args_schema,
+                )(self._create_tool_function(tool_def.name))
+                tools.append(lc_tool)
+
+            # Initialize LLM with tools
             llm = ChatOpenAI(
                 model=settings.openai_model or "gpt-4o",
                 api_key=settings.openai_api_key,
                 streaming=True,
-            )
+            ).bind_tools(tools)
 
             # Get the last message
             messages = state["messages"]
@@ -134,6 +147,15 @@ class LangGraphAgent:
             await emit_run_failed(self.run_id, str(e))
             return {"should_continue": False, "messages": state["messages"]}
 
+    def _create_tool_function(self, tool_name: str):
+        """Create a tool function for LangChain binding."""
+        async def tool_func(**kwargs):
+            tool = tool_registry.get(tool_name)
+            if not tool:
+                return {"error": f"Tool {tool_name} not found"}
+            return await tool.execute(**kwargs)
+        return tool_func
+
     async def _tool_node(self, state: AgentState) -> dict:
         """Tool node that executes tools."""
         messages = state["messages"]
@@ -153,7 +175,13 @@ class LangGraphAgent:
             # Get tool from registry
             tool = tool_registry.get(tool_name)
             if not tool:
-                results.append({"error": f"Tool {tool_name} not found"})
+                error_msg = {"error": f"Tool {tool_name} not found"}
+                # Use a placeholder tool_call_id since we don't have a DB record
+                error_tool_message = ToolMessage(
+                    content=json.dumps(error_msg),
+                    tool_call_id=f"error_{tool_name}",
+                )
+                results.append({"error": error_msg, "tool_message": error_tool_message})
                 continue
 
             definition = tool._definition
@@ -237,6 +265,7 @@ class LangGraphAgent:
                     result = await tool.execute(**args)
                     tc.status = ToolCallStatus.COMPLETED
                     tc.result = result
+                    tc.completed_at = datetime.utcnow()
                     await session.commit()
 
                     await emit_run_event(
@@ -245,7 +274,12 @@ class LangGraphAgent:
                         {"tool_call_id": tool_call_id, "result": result},
                     )
 
-                    results.append(result)
+                    # Add tool result to messages so LLM can see it
+                    tool_message = ToolMessage(
+                        content=json.dumps(result),
+                        tool_call_id=tool_call_id,
+                    )
+                    results.append({"result": result, "tool_message": tool_message})
                 except Exception as e:
                     tc.status = ToolCallStatus.FAILED
                     tc.error_message = str(e)
@@ -257,9 +291,17 @@ class LangGraphAgent:
                         {"tool_call_id": tool_call_id, "error": str(e)},
                     )
 
-                    results.append({"error": str(e)})
+                    error_tool_message = ToolMessage(
+                        content=json.dumps({"error": str(e)}),
+                        tool_call_id=tool_call_id,
+                    )
+                    results.append({"error": str(e), "tool_message": error_tool_message})
 
-        return {"tool_result": results, "should_continue": True}
+        return {
+            "tool_result": results,
+            "should_continue": True,
+            "messages": messages + [result.get("tool_message") for result in results if result.get("tool_message")],
+        }
 
     def _should_approve(self, state: AgentState) -> Literal["approval_node", "__end__"]:
         """Determine if we need approval before continuing."""
@@ -298,6 +340,14 @@ class LangGraphAgent:
                             approval.decision,
                             approval.edited_args,
                         )
+                        # Include tool message in state so LLM can see it
+                        tool_msg = tool_result.get("tool_message")
+                        if tool_msg:
+                            return {
+                                "pending_approval_id": None,
+                                "tool_result": tool_result,
+                                "messages": state["messages"] + [tool_msg],
+                            }
                         return {"pending_approval_id": None, "tool_result": tool_result}
 
                     return {"pending_approval_id": None}
@@ -341,6 +391,7 @@ class LangGraphAgent:
                 result = await tool.execute(**args)
                 tool_call.status = ToolCallStatus.COMPLETED
                 tool_call.result = result
+                tool_call.completed_at = datetime.utcnow()
                 await session.commit()
 
                 await emit_run_event(
@@ -349,7 +400,11 @@ class LangGraphAgent:
                     {"tool_call_id": str(tool_call_id), "result": result},
                 )
 
-                return result
+                tool_message = ToolMessage(
+                    content=json.dumps(result),
+                    tool_call_id=str(tool_call_id),
+                )
+                return {"result": result, "tool_message": tool_message}
             except Exception as e:
                 tool_call.status = ToolCallStatus.FAILED
                 tool_call.error_message = str(e)
@@ -361,7 +416,11 @@ class LangGraphAgent:
                     {"tool_call_id": str(tool_call_id), "error": str(e)},
                 )
 
-                return {"error": str(e)}
+                error_message = ToolMessage(
+                    content=json.dumps({"error": str(e)}),
+                    tool_call_id=str(tool_call_id),
+                )
+                return {"error": str(e), "tool_message": error_message}
 
     async def execute(self):
         """Execute the agent."""

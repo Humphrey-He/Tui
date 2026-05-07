@@ -29,6 +29,8 @@ export function ConversationPanel() {
     setApprovals,
     setSteps,
     setFileDiffs,
+    setLogs,
+    setFileDiffs,
   } = useConsoleStore();
 
   const [input, setInput] = useState("");
@@ -71,6 +73,7 @@ export function ConversationPanel() {
     setApprovals([]);
     setSteps([]);
     setFileDiffs([]);
+    setLogs([]);
     clearStreamContent();
 
     const userMessage = {

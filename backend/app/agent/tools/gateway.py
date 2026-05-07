@@ -63,4 +63,8 @@ class ToolGateway:
         tool_definition: ToolDefinition,
     ) -> bool:
         """Check if a tool needs approval based on its policy."""
-        return tool_definition.approval_policy == "always"
+        if tool_definition.approval_policy == "always":
+            return True
+        if tool_definition.approval_policy == "high_risk_only":
+            return tool_definition.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]
+        return False

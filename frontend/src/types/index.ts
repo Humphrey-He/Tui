@@ -161,6 +161,17 @@ export type RunEventType =
   | "file_diff.created"
   | "log.created";
 
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface LogEntry {
+  id: string;
+  run_id: string;
+  level: LogLevel;
+  message: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface RunEvent {
   event_id: string;
   run_id: string;
