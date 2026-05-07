@@ -423,7 +423,7 @@ async def emit_log(
             run_id=run_id,
             level=level,
             message=message,
-            metadata=metadata or {},
+            meta=metadata or {},
         )
         session.add(log)
         await session.commit()
