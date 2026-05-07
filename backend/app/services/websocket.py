@@ -2,6 +2,7 @@ import asyncio
 import json
 from typing import Optional, Callable, Any
 from uuid import UUID
+from datetime import datetime
 from starlette.websockets import WebSocket
 
 
@@ -144,7 +145,7 @@ async def handle_approve_tool_call(data: dict, websocket: WebSocket):
             approval.decision_reason = reason
             approval.status = ApprovalStatus.RESOLVED
             approval.decided_by = "user"  # TODO: Get from auth
-            approval.decided_at = asyncio.get_event_loop().time()
+            approval.decided_at = datetime.utcnow()
 
             # Update tool call status
             if approval.tool_call_id:
@@ -205,7 +206,7 @@ async def handle_reject_tool_call(data: dict, websocket: WebSocket):
             approval.decision_reason = reason
             approval.status = ApprovalStatus.RESOLVED
             approval.decided_by = "user"
-            approval.decided_at = asyncio.get_event_loop().time()
+            approval.decided_at = datetime.utcnow()
 
             # Update tool call status
             if approval.tool_call_id:
@@ -267,7 +268,7 @@ async def handle_edit_tool_call(data: dict, websocket: WebSocket):
             approval.decision_reason = reason
             approval.status = ApprovalStatus.RESOLVED
             approval.decided_by = "user"
-            approval.decided_at = asyncio.get_event_loop().time()
+            approval.decided_at = datetime.utcnow()
 
             await session.commit()
 

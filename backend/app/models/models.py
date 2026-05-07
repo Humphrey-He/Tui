@@ -114,6 +114,7 @@ class Run(Base):
     tool_calls = relationship("ToolCall", back_populates="run")
     approval_requests = relationship("ApprovalRequest", back_populates="run")
     file_diffs = relationship("FileDiff", back_populates="run")
+    logs = relationship("Log", back_populates="run")
 
 
 class Message(Base):
@@ -219,3 +220,17 @@ class AuditLog(Base):
     # Relationships
     project = relationship("Project", back_populates="audit_logs")
     actor = relationship("User", back_populates="audit_logs")
+
+
+class Log(Base):
+    __tablename__ = "logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id = Column(UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False)
+    level = Column(String(20), nullable=False, default="info")  # debug, info, warn, error
+    message = Column(Text, nullable=False)
+    metadata = Column(JSON, nullable=True, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    run = relationship("Run", back_populates="logs")

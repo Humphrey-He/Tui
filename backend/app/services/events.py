@@ -5,7 +5,7 @@ from typing import AsyncGenerator, Optional
 from uuid import UUID
 from sse_starlette.sse import EventSourceResponse
 from app.core import get_settings, async_session_maker
-from app.models import Run, RunStatus, Message, AgentStep, ToolCall, ApprovalRequest, AuditLog
+from app.models import Run, RunStatus, Message, AgentStep, ToolCall, ApprovalRequest, AuditLog, Log
 
 settings = get_settings()
 
@@ -201,4 +201,39 @@ async def emit_run_failed(run_id: UUID, error_message: str):
         run_id,
         EventType.RUN_FAILED,
         {"error_message": error_message},
+    )
+
+
+async def emit_log(
+    run_id: UUID,
+    level: str,
+    message: str,
+    metadata: Optional[dict] = None,
+):
+    """Emit a log event."""
+    # Store log in database
+    async with async_session_maker() as session:
+        log = Log(
+            run_id=run_id,
+            level=level,
+            message=message,
+            metadata=metadata or {},
+        )
+        session.add(log)
+        await session.commit()
+        await session.refresh(log)
+
+        log_data = {
+            "id": str(log.id),
+            "run_id": str(run_id),
+            "level": level,
+            "message": message,
+            "metadata": metadata or {},
+            "created_at": log.created_at.isoformat(),
+        }
+
+    await emit_run_event(
+        run_id,
+        EventType.LOG_CREATED,
+        {"log": log_data},
     )

@@ -1,6 +1,7 @@
 import asyncio
 from typing import Optional, Literal
 from uuid import UUID
+from datetime import datetime
 from app.core import get_settings, async_session_maker
 from app.models import Run, Session, Message, AgentStep, ToolCall, ApprovalRequest, RunStatus, ToolCallStatus, ApprovalStatus, ApprovalDecision, RiskLevel
 from app.agent.tools import tool_registry, ToolGateway
@@ -96,7 +97,7 @@ class AgentRuntime:
 
                 # Complete the step
                 step.status = "completed"
-                step.completed_at = asyncio.get_event_loop().time()
+                step.completed_at = datetime.utcnow()
                 await session.commit()
 
                 # Mark run as completed
@@ -104,7 +105,7 @@ class AgentRuntime:
                 run = result.scalar_one_or_none()
                 if run:
                     run.status = RunStatus.COMPLETED
-                    run.completed_at = asyncio.get_event_loop().time()
+                    run.completed_at = datetime.utcnow()
                     run.total_tokens = len(response_content) // 4  # Rough estimate
                     run.estimated_cost = run.total_tokens * 0.00003  # Rough estimate
                     await session.commit()
