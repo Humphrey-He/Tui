@@ -82,6 +82,21 @@ async def delete_session(session_id: UUID, db: AsyncSession = Depends(get_db)):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # Check for active runs (pending or running)
+    from app.models import Run, RunStatus
+    active_runs_result = await db.execute(
+        select(Run).where(
+            Run.session_id == session_id,
+            Run.status.in_([RunStatus.PENDING, RunStatus.RUNNING])
+        )
+    )
+    active_runs = active_runs_result.scalars().all()
+    if active_runs:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete session with active runs. Please cancel or wait for active runs to complete."
+        )
+
     await db.delete(session)
     return {"message": "Session deleted"}
 

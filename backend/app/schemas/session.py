@@ -44,6 +44,7 @@ class MessageCreate(MessageBase):
 class MessageResponse(MessageBase):
     id: UUID
     session_id: UUID
+    run_id: Optional[UUID] = None
     created_at: datetime
 
     class Config:

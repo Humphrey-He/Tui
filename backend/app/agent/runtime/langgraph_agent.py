@@ -31,6 +31,7 @@ from app.services.events import (
     emit_approval_created,
     emit_run_completed,
     emit_run_failed,
+    emit_run_cancelled,
 )
 
 settings = get_settings()
@@ -56,6 +57,8 @@ class LangGraphAgent:
         self._tool_gateway: Optional[ToolGateway] = None
         self._graph: Optional[StateGraph] = None
         self._config: Optional[dict] = None
+        self._assistant_message_id: Optional[str] = None
+        self._project_id: Optional[UUID] = None
 
     async def initialize(self):
         """Initialize the agent."""
@@ -77,7 +80,7 @@ class LangGraphAgent:
             run.status = RunStatus.RUNNING
             await session.commit()
 
-            await emit_run_event(self.run_id, EventType.RUN_STARTED, {"run_id": str(self.run_id)})
+            await emit_run_event(self.run_id, EventType.RUN_STARTED, {"run_id": str(self.run_id), "status": "running"})
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph state graph."""
@@ -107,6 +110,7 @@ class LangGraphAgent:
 
     async def _llm_node(self, state: AgentState) -> dict:
         """LLM node that generates responses."""
+        import uuid as uuid_lib
         try:
             # Get tools from registry and bind to LLM
             tools = []
@@ -141,7 +145,23 @@ class LangGraphAgent:
             # Create AI message
             ai_message = AIMessage(content=response_content)
 
-            await emit_message_completed(self.run_id, f"msg_{self.run_id}_assistant", response_content)
+            # Persist assistant message to database
+            msg_id = uuid_lib.uuid4()
+            async with async_session_maker() as db_session:
+                assistant_msg = Message(
+                    id=msg_id,
+                    session_id=UUID(state["session_id"]),
+                    run_id=self.run_id,
+                    role="assistant",
+                    content=response_content,
+                )
+                db_session.add(assistant_msg)
+                await db_session.commit()
+                await db_session.refresh(assistant_msg)
+                self._assistant_message_id = str(assistant_msg.id)
+
+            # Emit message completed with the actual message from DB
+            await emit_message_completed(self.run_id, str(assistant_msg.id), response_content)
 
             return {
                 "messages": messages + [ai_message],
@@ -478,7 +498,13 @@ class LangGraphAgent:
                 if not state.get("should_continue", True):
                     break
 
-            # Mark run as completed
+            # Calculate tokens for the response
+            total_tokens = sum(
+                len(m.content) // 4 for m in lc_messages if isinstance(m, (HumanMessage, AIMessage))
+            )
+            estimated_cost = total_tokens * 0.00003
+
+            # Complete the run and update session's last_run_id
             async with async_session_maker() as session:
                 from sqlalchemy import select
 
@@ -487,21 +513,34 @@ class LangGraphAgent:
                 if run:
                     run.status = RunStatus.COMPLETED
                     run.completed_at = datetime.utcnow()
+                    run.total_tokens = total_tokens
+                    run.estimated_cost = estimated_cost
+
+                    # Update session's last_run_id
+                    session_result = await session.execute(select(Session).where(Session.id == run.session_id))
+                    session_obj = session_result.scalar_one_or_none()
+                    if session_obj:
+                        session_obj.last_run_id = self.run_id
+
                     await session.commit()
 
-                total_tokens = sum(
-                    len(m.content) // 4 for m in lc_messages if isinstance(m, (HumanMessage, AIMessage))
-                )
-                run.total_tokens = total_tokens
-                run.estimated_cost = total_tokens * 0.00003
-                await session.commit()
-
-            await emit_run_completed(self.run_id, run.total_tokens, run.estimated_cost)
+            await emit_run_completed(self.run_id, total_tokens, estimated_cost)
 
         except Exception as e:
             import structlog
             logger = structlog.get_logger()
             logger.exception("Agent execution failed", error=str(e))
+
+            # Update run status to failed
+            async with async_session_maker() as session:
+                from sqlalchemy import select
+                result = await session.execute(select(Run).where(Run.id == self.run_id))
+                run = result.scalar_one_or_none()
+                if run:
+                    run.status = RunStatus.FAILED
+                    run.error_message = str(e)
+                    await session.commit()
+
             await emit_run_failed(self.run_id, str(e))
             raise
 
@@ -518,7 +557,7 @@ class LangGraphAgent:
                 run.cancelled_at = datetime.utcnow()
                 await session.commit()
 
-            await emit_run_event(self.run_id, EventType.RUN_CANCELLED, {})
+            await emit_run_cancelled(self.run_id)
 
 
 def create_langgraph_agent(run_id: UUID) -> LangGraphAgent:

@@ -397,7 +397,7 @@ async def emit_run_completed(run_id: UUID, total_tokens: int, estimated_cost: fl
     await emit_run_event(
         run_id,
         EventType.RUN_COMPLETED,
-        {"total_tokens": total_tokens, "estimated_cost": estimated_cost},
+        {"run_id": str(run_id), "status": "completed", "total_tokens": total_tokens, "estimated_cost": estimated_cost},
     )
 
 
@@ -406,7 +406,16 @@ async def emit_run_failed(run_id: UUID, error_message: str):
     await emit_run_event(
         run_id,
         EventType.RUN_FAILED,
-        {"error_message": error_message},
+        {"run_id": str(run_id), "status": "failed", "error": error_message},
+    )
+
+
+async def emit_run_cancelled(run_id: UUID):
+    """Emit a run cancelled event."""
+    await emit_run_event(
+        run_id,
+        EventType.RUN_CANCELLED,
+        {"run_id": str(run_id), "status": "cancelled"},
     )
 
 

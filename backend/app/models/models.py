@@ -87,7 +87,7 @@ class Session(Base):
     # Relationships
     project = relationship("Project", back_populates="sessions")
     messages = relationship("Message", back_populates="session", order_by="Message.created_at")
-    runs = relationship("Run", back_populates="session")
+    runs = relationship("Run", back_populates="session", foreign_keys="Run.session_id")
 
 
 class Run(Base):
@@ -108,7 +108,7 @@ class Run(Base):
 
     # Relationships
     project = relationship("Project", back_populates="runs")
-    session = relationship("Session", back_populates="runs")
+    session = relationship("Session", back_populates="runs", foreign_keys="Run.session_id")
     messages = relationship("Message", back_populates="run")
     agent_steps = relationship("AgentStep", back_populates="run")
     tool_calls = relationship("ToolCall", back_populates="run")
