@@ -36,6 +36,14 @@ from .approval import (
     ApprovalRequestResponse,
     ApprovalListResponse,
 )
+from .run_detail import (
+    FileDiffCreate,
+    FileDiffResponse,
+    FileDiffListResponse,
+    AgentStepCreate,
+    AgentStepResponse,
+    AgentStepListResponse,
+)
 
 __all__ = [
     "UserCreate",
@@ -66,4 +74,10 @@ __all__ = [
     "ApprovalDecisionRequest",
     "ApprovalRequestResponse",
     "ApprovalListResponse",
+    "FileDiffCreate",
+    "FileDiffResponse",
+    "FileDiffListResponse",
+    "AgentStepCreate",
+    "AgentStepResponse",
+    "AgentStepListResponse",
 ]

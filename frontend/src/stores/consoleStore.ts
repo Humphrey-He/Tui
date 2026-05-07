@@ -56,6 +56,7 @@ interface ConsoleState {
 
   setSteps: (steps: AgentStep[]) => void;
   addStep: (step: AgentStep) => void;
+  updateStep: (stepId: string, updates: Partial<AgentStep>) => void;
 
   setFileDiffs: (fileDiffs: FileDiff[]) => void;
   addFileDiff: (fileDiff: FileDiff) => void;
@@ -127,6 +128,12 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   setSteps: (steps) => set({ steps }),
   addStep: (step) =>
     set((state) => ({ steps: [...state.steps, step] })),
+  updateStep: (stepId, updates) =>
+    set((state) => ({
+      steps: state.steps.map((s) =>
+        s.id === stepId ? { ...s, ...updates } : s
+      ),
+    })),
 
   setFileDiffs: (fileDiffs) => set({ fileDiffs }),
   addFileDiff: (fileDiff) =>

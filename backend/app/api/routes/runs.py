@@ -5,8 +5,13 @@ from typing import Optional
 from uuid import UUID
 from datetime import datetime
 from app.core import get_db
-from app.models import Run, Session, Message, RunStatus
-from app.schemas import RunCreate, RunUpdate, RunResponse, RunListResponse
+from app.models import Run, Session, Message, RunStatus, ToolCall, FileDiff, AgentStep
+from app.schemas import (
+    RunCreate, RunUpdate, RunResponse, RunListResponse,
+    ToolCallResponse, ToolCallListResponse,
+    FileDiffResponse, FileDiffListResponse,
+    AgentStepResponse, AgentStepListResponse,
+)
 from app.agent.runtime import create_langgraph_agent
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -134,3 +139,54 @@ async def cancel_run(run_id: UUID, db: AsyncSession = Depends(get_db)):
     await cancel_runtime(run_id)
 
     return run
+
+
+@router.get("/{run_id}/tool-calls", response_model=ToolCallListResponse)
+async def list_run_tool_calls(run_id: UUID, db: AsyncSession = Depends(get_db)):
+    """List all tool calls for a run."""
+    # Verify run exists
+    run_result = await db.execute(select(Run).where(Run.id == run_id))
+    if not run_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result = await db.execute(
+        select(ToolCall)
+        .where(ToolCall.run_id == run_id)
+        .order_by(ToolCall.started_at)
+    )
+    tool_calls = result.scalars().all()
+    return ToolCallListResponse(tool_calls=tool_calls)
+
+
+@router.get("/{run_id}/steps", response_model=AgentStepListResponse)
+async def list_run_steps(run_id: UUID, db: AsyncSession = Depends(get_db)):
+    """List all steps for a run."""
+    # Verify run exists
+    run_result = await db.execute(select(Run).where(Run.id == run_id))
+    if not run_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result = await db.execute(
+        select(AgentStep)
+        .where(AgentStep.run_id == run_id)
+        .order_by(AgentStep.step_order)
+    )
+    steps = result.scalars().all()
+    return AgentStepListResponse(steps=steps)
+
+
+@router.get("/{run_id}/diffs", response_model=FileDiffListResponse)
+async def list_run_diffs(run_id: UUID, db: AsyncSession = Depends(get_db)):
+    """List all file diffs for a run."""
+    # Verify run exists
+    run_result = await db.execute(select(Run).where(Run.id == run_id))
+    if not run_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result = await db.execute(
+        select(FileDiff)
+        .where(FileDiff.run_id == run_id)
+        .order_by(FileDiff.created_at)
+    )
+    diffs = result.scalars().all()
+    return FileDiffListResponse(diffs=diffs)

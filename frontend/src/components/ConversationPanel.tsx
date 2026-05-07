@@ -21,9 +21,14 @@ export function ConversationPanel() {
     setMessages,
     addMessage,
     setCurrentRun,
+    setSelectedRun,
     setIsStreaming,
     appendStreamContent,
     clearStreamContent,
+    setToolCalls,
+    setApprovals,
+    setSteps,
+    setFileDiffs,
   } = useConsoleStore();
 
   const [input, setInput] = useState("");
@@ -61,6 +66,13 @@ export function ConversationPanel() {
   const handleStartRun = async () => {
     if (!input.trim() || !selectedSessionId) return;
 
+    // Clear previous run data
+    setToolCalls([]);
+    setApprovals([]);
+    setSteps([]);
+    setFileDiffs([]);
+    clearStreamContent();
+
     const userMessage = {
       id: `msg_${Date.now()}`,
       session_id: selectedSessionId,
@@ -73,7 +85,6 @@ export function ConversationPanel() {
 
     try {
       setIsStreaming(true);
-      clearStreamContent();
 
       const run = await runsApi.create({
         session_id: selectedSessionId,
@@ -83,6 +94,7 @@ export function ConversationPanel() {
         ],
       });
       setCurrentRun(run);
+      setSelectedRun(run.id);
 
       runEventsService.connect(run.id);
     } catch (error) {
