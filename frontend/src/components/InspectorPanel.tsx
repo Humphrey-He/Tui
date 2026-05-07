@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useConsoleStore } from "@/stores/consoleStore";
+import { controlSocketService } from "@/lib/realtime/controlSocket";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ToolCallView } from "@/components/ToolCallView";
 import { FileDiffView } from "@/components/FileDiffView";
 import {
@@ -14,6 +17,8 @@ import {
   Clock,
   AlertTriangle,
   ShieldAlert,
+  Loader2,
+  Edit3,
 } from "lucide-react";
 import type { ApprovalRequest, ToolCall } from "@/types";
 
@@ -306,49 +311,163 @@ function ApprovalDetailView({
   onClose: () => void;
   getRiskIcon: (risk: string) => React.ReactNode;
 }) {
-  const { controlSocketService } = require("@/lib/realtime/controlSocket");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedArgs, setEditedArgs] = useState(JSON.stringify(approval.original_args, null, 2));
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleApprove = () => {
-    controlSocketService.approveToolCall(approval.id);
-    onClose();
+  const handleApprove = async () => {
+    setIsSubmitting(true);
+    try {
+      controlSocketService.approveToolCall(approval.id, reason || undefined);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleReject = () => {
-    controlSocketService.rejectToolCall(approval.id);
-    onClose();
+  const handleReject = async () => {
+    setIsSubmitting(true);
+    try {
+      controlSocketService.rejectToolCall(approval.id, reason || undefined);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditAndApprove = async () => {
+    setIsSubmitting(true);
+    try {
+      const parsedArgs = JSON.parse(editedArgs);
+      controlSocketService.editToolCall(approval.id, parsedArgs, reason || undefined);
+      onClose();
+    } catch (error) {
+      console.error("Invalid JSON:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="p-4 bg-muted/50">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-medium">Approval Request</h3>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Close
-        </Button>
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <p className="text-sm text-muted-foreground">Action</p>
-          <p className="text-sm font-medium">{approval.requested_action}</p>
+    <div className="border-t bg-muted/30">
+      <div className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-destructive" />
+            <h3 className="font-semibold">Approval Required</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Close
+          </Button>
         </div>
 
-        <div>
-          <p className="text-sm text-muted-foreground">Arguments</p>
-          <pre className="text-xs bg-background p-2 rounded mt-1 overflow-auto">
-            {JSON.stringify(approval.original_args, null, 2)}
-          </pre>
+        {/* Action Description */}
+        <div className="bg-background rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{approval.requested_action}</span>
+            {getRiskIcon("high")}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This action requires your approval before it can be executed.
+          </p>
         </div>
 
-        <div className="flex gap-2 pt-2">
-          <Button size="sm" onClick={handleApprove}>
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Approve
-          </Button>
-          <Button size="sm" variant="destructive" onClick={handleReject}>
-            <XCircle className="h-4 w-4 mr-1" />
-            Reject
-          </Button>
+        {/* Arguments */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Arguments</label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              className="h-7 text-xs"
+            >
+              <Edit3 className="h-3 w-3 mr-1" />
+              {isEditing ? "Cancel" : "Edit"}
+            </Button>
+          </div>
+
+          {isEditing ? (
+            <textarea
+              value={editedArgs}
+              onChange={(e) => setEditedArgs(e.target.value)}
+              className="w-full h-32 p-2 text-xs font-mono bg-background border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Edit arguments as JSON..."
+            />
+          ) : (
+            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-40">
+              {JSON.stringify(approval.original_args, null, 2)}
+            </pre>
+          )}
+        </div>
+
+        {/* Reason */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Reason (optional)</label>
+          <Input
+            placeholder="Add a reason for your decision..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="h-9 text-sm"
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-2">
+          {isEditing ? (
+            <>
+              <Button
+                size="sm"
+                onClick={handleEditAndApprove}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Edit & Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsEditing(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                onClick={handleApprove}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleReject}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                Reject
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
