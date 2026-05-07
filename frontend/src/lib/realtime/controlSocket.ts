@@ -1,4 +1,5 @@
 import type { ApprovalDecision } from "@/types";
+import { useConsoleStore } from "@/stores/consoleStore";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
 
@@ -13,12 +14,16 @@ class ControlSocketService {
   private messageQueue: Array<{ type: string; data: unknown }> = [];
 
   connect(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) return;
+
     this.ws = new WebSocket(`${WS_URL}/api/ws/control`);
     this.reconnectAttempts = 0;
+    this.registerStoreHandlers();
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.flushQueue();
+      this.emit("connected", {});
     };
 
     this.ws.onmessage = (event) => {
@@ -32,12 +37,42 @@ class ControlSocketService {
     };
 
     this.ws.onerror = () => {
-      this.attemptReconnect();
+      this.emit("disconnected", {});
     };
 
     this.ws.onclose = () => {
+      this.emit("disconnected", {});
       this.attemptReconnect();
     };
+  }
+
+  private registerStoreHandlers(): void {
+    // 监听审批结果，更新 store 中的审批状态
+    this.on("approval.resolved", (data) => {
+      const { approval_id, decision, reason } = data as {
+        approval_id: string;
+        decision: ApprovalDecision;
+        reason?: string;
+      };
+      useConsoleStore.getState().updateApproval(approval_id, {
+        status: "resolved",
+        decision,
+        decision_reason: reason,
+        decided_at: new Date().toISOString(),
+      });
+    });
+
+    // 监听 Run 状态变化
+    this.on("run.status_changed", (data) => {
+      const { run_id, status } = data as { run_id: string; status: string };
+      const currentRun = useConsoleStore.getState().currentRun;
+      if (currentRun && currentRun.id === run_id) {
+        useConsoleStore.getState().setCurrentRun({
+          ...currentRun,
+          status: status as any,
+        });
+      }
+    });
   }
 
   private attemptReconnect(): void {
