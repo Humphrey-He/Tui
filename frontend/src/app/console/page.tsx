@@ -10,9 +10,12 @@ import { LogsPanel } from "@/components/LogsPanel";
 import { useConsoleStore } from "@/stores/consoleStore";
 import { controlSocketService } from "@/lib/realtime/controlSocket";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Activity, Boxes, CircleDollarSign, Cpu, Radio } from "lucide-react";
 
 export default function ConsolePage() {
-  const { isConnected, setIsConnected } = useConsoleStore();
+  const { currentRun, isConnected, isStreaming, setIsConnected } =
+    useConsoleStore();
 
   useEffect(() => {
     controlSocketService.connect();
@@ -32,58 +35,90 @@ export default function ConsolePage() {
 
   return (
     <QueryProvider>
-      <main className="flex flex-col h-screen bg-background">
-        {/* Header */}
-        <header className="flex items-center justify-between px-4 py-3 border-b bg-card">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold">Agent Console</h1>
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-green-500" : "bg-red-500"
-                }`}
-              />
-              <span className="text-xs text-muted-foreground">
-                {isConnected ? "Connected" : "Disconnected"}
-              </span>
+      <main className="flex h-screen flex-col bg-background text-foreground">
+        <header className="border-b border-white/10 bg-chrome text-chrome-foreground shadow-[0_18px_40px_rgba(15,23,42,0.18)]">
+          <div className="flex items-center justify-between gap-4 px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
+                <Boxes className="h-4 w-4 text-accent" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm font-semibold tracking-wide">
+                    Agent Console
+                  </h1>
+                <Badge className="h-5 rounded-full bg-white/10 px-2 text-[10px] font-medium text-white ring-1 ring-white/10 hover:bg-white/10">
+                    AI Workbench
+                  </Badge>
+                </div>
+                <p className="text-xs text-white/55">
+                  Runtime visibility, tool control, and human approval
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">v0.1.0</span>
+
+            <div className="flex items-center gap-2">
+              <div className="hidden items-center gap-2 rounded-lg bg-white/[0.08] px-3 py-2 ring-1 ring-white/10 md:flex">
+                <Cpu className="h-3.5 w-3.5 text-accent" />
+                <span className="text-xs text-white/65">Model</span>
+                <span className="text-xs font-medium">
+                  {currentRun?.model || "gpt-4o"}
+                </span>
+              </div>
+              <div className="hidden items-center gap-2 rounded-lg bg-white/[0.08] px-3 py-2 ring-1 ring-white/10 lg:flex">
+                <Activity className="h-3.5 w-3.5 text-accent" />
+                <span className="text-xs text-white/65">Run</span>
+                <span className="text-xs font-medium capitalize">
+                  {currentRun?.status || "idle"}
+                </span>
+              </div>
+              <div className="hidden items-center gap-2 rounded-lg bg-white/[0.08] px-3 py-2 ring-1 ring-white/10 xl:flex">
+                <CircleDollarSign className="h-3.5 w-3.5 text-accent" />
+                <span className="text-xs text-white/65">Cost</span>
+                <span className="text-xs font-medium">
+                  ${currentRun?.estimated_cost?.toFixed(4) || "0.0000"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-white/[0.08] px-3 py-2 ring-1 ring-white/10">
+                <Radio
+                  className={`h-3.5 w-3.5 ${
+                    isConnected ? "text-emerald-300" : "text-red-300"
+                  } ${isStreaming ? "animate-pulse" : ""}`}
+                />
+                <span className="text-xs font-medium">
+                  {isConnected ? "Live" : "Offline"}
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
-        {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left: Session Sidebar */}
-          <aside className="w-64 border-r bg-card overflow-hidden flex flex-col">
+        <div className="flex flex-1 gap-3 overflow-hidden p-3">
+          <aside className="ai-panel flex w-72 flex-col overflow-hidden rounded-xl">
             <SessionSidebar />
           </aside>
 
-          {/* Center: Conversation */}
-          <section className="flex-1 flex flex-col overflow-hidden">
+          <section className="ai-panel flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
             <ConversationPanel />
           </section>
 
-          {/* Right: Inspector */}
-          <aside className="w-80 border-l bg-card overflow-hidden flex flex-col">
+          <aside className="ai-panel flex w-[360px] flex-col overflow-hidden rounded-xl">
             <InspectorPanel />
           </aside>
         </div>
 
-        {/* Bottom: Timeline / Logs */}
-        <footer className="h-48 border-t bg-card">
+        <footer className="mx-3 mb-3 h-52 overflow-hidden rounded-xl ai-panel">
           <Tabs defaultValue="timeline" className="h-full flex flex-col">
-            <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-2">
+            <TabsList className="h-auto w-full justify-start rounded-none border-b bg-muted/40 p-1 px-3">
               <TabsTrigger
                 value="timeline"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs h-8"
+                className="h-8 rounded-lg px-3 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 Timeline
               </TabsTrigger>
               <TabsTrigger
                 value="logs"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs h-8"
+                className="h-8 rounded-lg px-3 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 Logs
               </TabsTrigger>

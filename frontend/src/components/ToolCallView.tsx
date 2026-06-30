@@ -50,10 +50,10 @@ export function ToolCallView({ toolCall, onClose }: ToolCallViewProps) {
   };
 
   return (
-    <div className="p-4 bg-muted/50 border-t">
+    <div className="border-t bg-muted/35 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium">{toolCall.tool_name}</h3>
+          <h3 className="font-semibold tracking-tight">{toolCall.tool_name}</h3>
           {getStatusIcon()}
           {getRiskBadge()}
         </div>
@@ -62,15 +62,15 @@ export function ToolCallView({ toolCall, onClose }: ToolCallViewProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {/* Arguments */}
-        <Card>
-          <CardHeader className="p-3">
+        <Card className="border-border/80 shadow-sm">
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="text-sm">Arguments</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <ScrollArea className="h-32">
-              <pre className="text-xs bg-background p-2 rounded overflow-auto">
+              <pre className="overflow-auto rounded-lg border bg-background p-2 font-mono text-xs">
                 {JSON.stringify(toolCall.arguments, null, 2)}
               </pre>
             </ScrollArea>
@@ -78,8 +78,8 @@ export function ToolCallView({ toolCall, onClose }: ToolCallViewProps) {
         </Card>
 
         {/* Result */}
-        <Card>
-          <CardHeader className="p-3">
+        <Card className="border-border/80 shadow-sm">
+          <CardHeader className="p-3 pb-2">
             <CardTitle className="text-sm">Result</CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0">
@@ -90,7 +90,7 @@ export function ToolCallView({ toolCall, onClose }: ToolCallViewProps) {
               </div>
             ) : toolCall.result ? (
               <ScrollArea className="h-32">
-                <pre className="text-xs bg-background p-2 rounded overflow-auto">
+                <pre className="overflow-auto rounded-lg border bg-background p-2 font-mono text-xs">
                   {JSON.stringify(toolCall.result, null, 2)}
                 </pre>
               </ScrollArea>
@@ -104,7 +104,7 @@ export function ToolCallView({ toolCall, onClose }: ToolCallViewProps) {
       </div>
 
       {/* Metadata */}
-      <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>Started: {new Date(toolCall.started_at).toLocaleString()}</span>
         <span>Duration: {formatDuration()}</span>
         {toolCall.required_permission && (

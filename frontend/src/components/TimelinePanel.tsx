@@ -47,8 +47,8 @@ export function TimelinePanel() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b">
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
         <div className="flex items-center gap-4">
           <h2 className="text-sm font-semibold">Timeline</h2>
           {currentRun && (
@@ -60,6 +60,7 @@ export function TimelinePanel() {
                   ? "secondary"
                   : "outline"
               }
+              className="text-xs"
             >
               {currentRun.status}
             </Badge>
@@ -67,9 +68,9 @@ export function TimelinePanel() {
         </div>
         {currentRun && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Model: {currentRun.model}</span>
-            <span>Tokens: {currentRun.total_tokens}</span>
-            <span>Cost: ${currentRun.estimated_cost.toFixed(4)}</span>
+            <span>{currentRun.model}</span>
+            <span>{currentRun.total_tokens} tokens</span>
+            <span>${currentRun.estimated_cost.toFixed(4)}</span>
           </div>
         )}
       </div>
@@ -77,29 +78,32 @@ export function TimelinePanel() {
       <ScrollArea className="flex-1">
         <div className="p-4">
           {steps.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              No steps yet. Start a run to see the timeline.
+            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+              No steps yet. Start a run to see execution progress.
             </div>
           ) : (
             <div className="relative">
               {/* Timeline line */}
-              <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+              <div className="absolute bottom-0 left-4 top-0 w-px bg-border" />
 
               {/* Steps */}
               <div className="space-y-4">
                 {steps.map((step, index) => (
-                  <div key={step.id} className="relative flex gap-4 pl-10">
+                  <div
+                    key={step.id}
+                    className="relative flex gap-4 rounded-xl px-3 py-2 pl-10 transition-colors hover:bg-muted/45"
+                  >
                     {/* Icon */}
                     <div
-                      className={`absolute left-2 w-5 h-5 rounded-full bg-background border-2 ${getStatusColor(
+                      className={`absolute left-2 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 bg-background ${getStatusColor(
                         step.status
-                      )} flex items-center justify-center`}
+                      )}`}
                     >
                       {getStepIcon(step)}
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium capitalize">
                           {step.step_type.replace(/_/g, " ")}

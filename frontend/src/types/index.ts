@@ -151,6 +151,7 @@ export type RunEventType =
   | "message.delta"
   | "message.completed"
   | "step.started"
+  | "step.completed"
   | "tool_call.created"
   | "tool_call.pending_approval"
   | "tool_call.started"

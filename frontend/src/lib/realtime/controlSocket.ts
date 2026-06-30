@@ -4,6 +4,7 @@ import { useConsoleStore } from "@/stores/consoleStore";
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
 
 type MessageHandler = (data: unknown) => void;
+type ControlPayload = Record<string, unknown>;
 
 class ControlSocketService {
   private ws: WebSocket | null = null;
@@ -11,7 +12,7 @@ class ControlSocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
-  private messageQueue: Array<{ type: string; data: unknown }> = [];
+  private messageQueue: Array<{ type: string; data: ControlPayload }> = [];
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
@@ -105,9 +106,11 @@ class ControlSocketService {
     }
   }
 
-  send(type: string, data?: unknown): void {
+  send(type: string, data: ControlPayload = {}): void {
+    const message = { type, ...data };
+
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type, ...data }));
+      this.ws.send(JSON.stringify(message));
     } else {
       this.messageQueue.push({ type, data });
     }

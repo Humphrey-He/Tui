@@ -56,9 +56,9 @@ export function LogsPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Logs</h2>
           {currentRun && (
@@ -70,6 +70,7 @@ export function LogsPanel() {
                   ? "secondary"
                   : "outline"
               }
+              className="text-xs"
             >
               {currentRun.status}
             </Badge>
@@ -83,7 +84,7 @@ export function LogsPanel() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
+      <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
         {/* Level filters */}
         <div className="flex items-center gap-1">
           {LEVELS.map((level) => {
@@ -158,7 +159,7 @@ function LogEntryRow({ log }: { log: LogEntry }) {
   const config = LOG_LEVEL_CONFIG[log.level];
 
   return (
-    <div className="flex items-start gap-2 py-1 px-2 hover:bg-muted/50 rounded">
+    <div className="flex items-start gap-2 rounded-lg px-2 py-1 hover:bg-muted/55">
       <span className="text-muted-foreground shrink-0">
         {new Date(log.created_at).toLocaleTimeString()}
       </span>

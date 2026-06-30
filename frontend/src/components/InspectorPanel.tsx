@@ -19,10 +19,13 @@ import {
   ShieldAlert,
   Loader2,
   Edit3,
+  FileCode2,
+  Wrench,
 } from "lucide-react";
-import type { ApprovalRequest, ToolCall } from "@/types";
+import type { ApprovalRequest, FileDiff, ToolCall } from "@/types";
 
 export function InspectorPanel() {
+  const [selectedDiff, setSelectedDiff] = useState<FileDiff | null>(null);
   const {
     selectedApprovalId,
     setSelectedApproval,
@@ -56,16 +59,21 @@ export function InspectorPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-3 border-b">
-        <h2 className="text-sm font-semibold">Inspector</h2>
+    <div className="flex h-full flex-col bg-sidebar">
+      <div className="border-b p-3">
+        <h2 className="text-sm font-semibold tracking-tight text-sidebar-foreground">
+          Inspector
+        </h2>
+        <p className="text-[11px] text-muted-foreground">
+          Tool calls, approvals, and generated changes
+        </p>
       </div>
 
       <Tabs defaultValue="tool-calls" className="flex-1 flex flex-col">
-        <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0">
+        <TabsList className="h-auto w-full justify-start rounded-none border-b bg-muted/40 p-1">
           <TabsTrigger
             value="tool-calls"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="h-8 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             Tool Calls
             {toolCalls.length > 0 && (
@@ -76,7 +84,7 @@ export function InspectorPanel() {
           </TabsTrigger>
           <TabsTrigger
             value="approvals"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="h-8 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             Approvals
             {pendingApprovals.length > 0 && (
@@ -87,7 +95,7 @@ export function InspectorPanel() {
           </TabsTrigger>
           <TabsTrigger
             value="files"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className="h-8 rounded-lg px-2 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
           >
             Files
             {fileDiffs.length > 0 && (
@@ -102,9 +110,11 @@ export function InspectorPanel() {
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               {toolCalls.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No tool calls yet
-                </div>
+                <EmptyInspectorState
+                  icon={<Wrench className="h-5 w-5" />}
+                  title="No tool calls"
+                  description="Tool activity will appear here as the agent works."
+                />
               ) : (
                 toolCalls.map((toolCall) => (
                   <ToolCallCard
@@ -124,9 +134,11 @@ export function InspectorPanel() {
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               {pendingApprovals.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No pending approvals
-                </div>
+                <EmptyInspectorState
+                  icon={<ShieldAlert className="h-5 w-5" />}
+                  title="No pending approvals"
+                  description="High-risk actions will pause here for review."
+                />
               ) : (
                 pendingApprovals.map((approval) => (
                   <ApprovalCard
@@ -146,15 +158,17 @@ export function InspectorPanel() {
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2">
               {fileDiffs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No file changes yet
-                </div>
+                <EmptyInspectorState
+                  icon={<FileCode2 className="h-5 w-5" />}
+                  title="No file changes"
+                  description="Generated diffs and artifacts will be listed here."
+                />
               ) : (
                 fileDiffs.map((diff) => (
                   <FileDiffCard
                     key={diff.id}
                     diff={diff}
-                    onClick={() => {}}
+                    onClick={() => setSelectedDiff(diff)}
                   />
                 ))
               )}
@@ -181,6 +195,9 @@ export function InspectorPanel() {
           )}
         </div>
       )}
+      {selectedDiff && (
+        <FileDiffView diff={selectedDiff} onClose={() => setSelectedDiff(null)} />
+      )}
     </div>
   );
 }
@@ -199,10 +216,10 @@ function ToolCallCard({
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+      className={`w-full rounded-xl border p-3 text-left shadow-sm transition-all ${
         isSelected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:bg-muted"
+          ? "border-primary/30 bg-primary/5"
+          : "border-border bg-background/80 hover:border-primary/20 hover:bg-background"
       }`}
     >
       <div className="flex items-center justify-between mb-1">
@@ -212,7 +229,7 @@ function ToolCallCard({
         </div>
         <StatusBadge status={toolCall.status} />
       </div>
-      <p className="text-xs text-muted-foreground truncate">
+      <p className="truncate font-mono text-[11px] text-muted-foreground">
         {JSON.stringify(toolCall.arguments)}
       </p>
     </button>
@@ -233,10 +250,10 @@ function ApprovalCard({
   return (
     <button
       onClick={onSelect}
-      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+      className={`w-full rounded-xl border p-3 text-left shadow-sm transition-all ${
         isSelected
-          ? "border-primary bg-primary/5"
-          : "border-border hover:bg-muted"
+          ? "border-destructive/30 bg-destructive/5"
+          : "border-border bg-background/80 hover:border-destructive/20 hover:bg-background"
       }`}
     >
       <div className="flex items-center justify-between mb-1">
@@ -263,10 +280,10 @@ function FileDiffCard({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted transition-colors"
+      className="w-full rounded-xl border border-border bg-background/80 p-3 text-left shadow-sm transition-all hover:border-primary/20 hover:bg-background"
     >
       <div className="flex items-center justify-between">
-        <span className="font-medium text-sm">{diff.file_path}</span>
+        <span className="truncate text-sm font-medium">{diff.file_path}</span>
         <Badge
           variant={
             diff.change_type === "deleted"
@@ -302,6 +319,28 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function EmptyInspectorState({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed bg-background/70 p-5 text-center">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+        {icon}
+      </div>
+      <div className="text-sm font-medium">{title}</div>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
+
 function ApprovalDetailView({
   approval,
   onClose,
@@ -315,6 +354,7 @@ function ApprovalDetailView({
   const [editedArgs, setEditedArgs] = useState(JSON.stringify(approval.original_args, null, 2));
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -338,12 +378,14 @@ function ApprovalDetailView({
 
   const handleEditAndApprove = async () => {
     setIsSubmitting(true);
+    setJsonError(null);
     try {
       const parsedArgs = JSON.parse(editedArgs);
       controlSocketService.editToolCall(approval.id, parsedArgs, reason || undefined);
       onClose();
     } catch (error) {
       console.error("Invalid JSON:", error);
+      setJsonError("Arguments must be valid JSON before approval.");
     } finally {
       setIsSubmitting(false);
     }
@@ -364,7 +406,7 @@ function ApprovalDetailView({
         </div>
 
         {/* Action Description */}
-        <div className="bg-background rounded-lg p-3 space-y-2">
+        <div className="space-y-2 rounded-xl border bg-background p-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{approval.requested_action}</span>
             {getRiskIcon("high")}
@@ -393,13 +435,16 @@ function ApprovalDetailView({
             <textarea
               value={editedArgs}
               onChange={(e) => setEditedArgs(e.target.value)}
-              className="w-full h-32 p-2 text-xs font-mono bg-background border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-32 w-full resize-none rounded-lg border bg-background p-2 font-mono text-xs outline-none focus:ring-2 focus:ring-primary"
               placeholder="Edit arguments as JSON..."
             />
           ) : (
-            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-40">
+            <pre className="max-h-40 overflow-auto rounded-lg border bg-background p-3 text-xs">
               {JSON.stringify(approval.original_args, null, 2)}
             </pre>
+          )}
+          {jsonError && (
+            <p className="text-xs text-destructive">{jsonError}</p>
           )}
         </div>
 
